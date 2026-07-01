@@ -44,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
   setupKeyboard();
   setupPWA();
-  setupSoundButtons();
   setupExitDF();
 
   if (state.settings.notifs && 'Notification' in window && Notification.permission === 'granted') {
@@ -61,42 +60,154 @@ document.addEventListener('DOMContentLoaded', () => {
   if (xpBar) xpBar.style.willChange = 'width';
 });
 
+
 function createAppShell() {
   const app = document.getElementById('app');
   if (!app) return;
 
-  const state = getState();
+  app.innerHTML = `﻿
+<div class="bg-grid"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
 
-  app.innerHTML = `
-<div id="app-inner">
-  <header class="header" id="app-header">
-    <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      Student OS
+<button class="btn btn-ghost exit-df" id="exit-df-btn" onclick="exitDF()">&#x26F6; Exit Deep Focus</button>
+<div id="toasts"></div>
+
+<!-- Level Up -->
+<div id="lu-overlay">
+  <div class="confetti-w" id="confetti"></div>
+  <div class="lu-emoji">&#x1F3C6;</div>
+  <div class="lu-title">LEVEL UP!</div>
+  <div class="lu-sub" id="lu-sub">You reached a new level!</div>
+  <div class="lu-badge" id="lu-badge">Level 1 &mdash; Rookie</div>
+  <button class="btn btn-blue" style="margin-top:24px;font-size:15px;padding:13px 30px;border-radius:50px" onclick="closeLevelUp()">Let's Go &#x1F525;</button>
+</div>
+
+<!-- Task Modal -->
+<div class="overlay" id="task-modal" onclick="onOverlayClick(event,'task-modal')">
+  <div class="panel">
+    <div class="panel-title">New Mission <button class="panel-close" onclick="hideModal('task-modal')">&#x2715;</button></div>
+    <div class="f-group"><label class="f-label">Task Name</label><input class="f-input" id="t-name" placeholder="e.g. Solve 20 integration problems..." maxlength="80"></div>
+    <div class="f-row">
+      <div class="f-group"><label class="f-label">Subject</label>
+        <select class="f-select" id="t-sub">
+          <option value="math">Math</option><option value="physics">Physics</option>
+          <option value="chemistry">Chemistry</option><option value="english">English</option>
+          <option value="history">History</option><option value="biology">Biology</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="f-group"><label class="f-label">Est. Time</label><input class="f-input" id="t-time" placeholder="30 min" maxlength="20"></div>
     </div>
-    <nav class="nav" id="nav-header">
-      <button class="nav-btn on" data-t="home">Home</button>
-      <button class="nav-btn" data-t="dash">Dashboard</button>
-      <button class="nav-btn" data-t="focus">Focus</button>
-      <button class="nav-btn" data-t="tasks">Tasks</button>
-      <button class="nav-btn" data-t="prog">Progress</button>
-      <button class="nav-btn" data-t="ai">AI</button>
-    </nav>
-  </header>
+    <div class="f-group"><label class="f-label">Priority</label>
+      <div class="pri-row" id="pri-row">
+        <button class="p-opt s-h" data-p="high" onclick="selectPriority('high')">&#x1F534; High</button>
+        <button class="p-opt" data-p="medium" onclick="selectPriority('medium')">&#x1F7E1; Med</button>
+        <button class="p-opt" data-p="low" onclick="selectPriority('low')">&#x1F7E2; Low</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn btn-ghost" style="flex:1" onclick="hideModal('task-modal')">Cancel</button>
+      <button class="btn btn-blue" style="flex:1" onclick="addTask()">Add Mission</button>
+    </div>
+  </div>
+</div>
 
-  <main class="main" id="main">
+<!-- Settings Modal -->
+<div class="overlay" id="set-modal" onclick="onOverlayClick(event,'set-modal')">
+  <div class="panel">
+    <div class="panel-title">Settings <button class="panel-close" onclick="hideModal('set-modal')">&#x2715;</button></div>
+    <div class="set-sec"><h4>Profile</h4>
+      <div class="f-group"><label class="f-label">Display Name</label><input class="f-input" id="set-name" placeholder="Your name" maxlength="24"></div>
+      <button class="btn btn-blue" style="width:100%" onclick="saveName()">Save Name</button>
+    </div>
+    <div class="set-sec"><h4>Focus Duration (minutes)</h4>
+      <div class="dur-row" id="dur-row">
+        <button class="d-btn" data-d="15" onclick="setDur(15)">15</button>
+        <button class="d-btn" data-d="20" onclick="setDur(20)">20</button>
+        <button class="d-btn on" data-d="25" onclick="setDur(25)">25</button>
+        <button class="d-btn" data-d="30" onclick="setDur(30)">30</button>
+        <button class="d-btn" data-d="45" onclick="setDur(45)">45</button>
+        <button class="d-btn" data-d="60" onclick="setDur(60)">60</button>
+      </div>
+    </div>
+    <div class="set-sec"><h4>AI API Key</h4>
+      <p style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.5">Add your <a href="https://console.anthropic.com" target="_blank" style="color:var(--purple)">Anthropic API key</a> to unlock real Claude AI. Without it, local answers are used.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="f-input" id="api-key-inp" type="password" placeholder="sk-ant-api03-..." maxlength="120" style="font-family:var(--fm);font-size:12px;letter-spacing:.5px">
+        <button class="btn btn-blue" style="flex-shrink:0;padding:10px 14px" onclick="saveApiKey()">Save</button>
+      </div>
+      <div id="ai-status" style="font-size:11px;margin-top:7px;color:var(--t3)"></div>
+    </div>
+    <div class="set-sec"><h4>Preferences</h4>
+      <div class="set-row">
+        <label>Study Reminders</label>
+        <label class="tgl"><input type="checkbox" id="notif-toggle" onchange="toggleNotifs(this.checked)"><span class="tgl-track"></span></label>
+      </div>
+      <p style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.5">Get nudged when you haven't studied. Only fires between 7amΓÇô10pm.</p>
+    </div>
+    <div class="set-sec"><h4>About</h4>
+      <div class="set-row"><label>Version</label><span style="color:var(--t3);font-family:var(--fm);font-size:11px">v4.0.0</span></div>
+    </div>
+    <div class="set-sec"><h4>Backup &amp; Restore</h4>
+      <div style="display:flex;gap:10px;margin-bottom:8px">
+        <button class="btn btn-ghost" style="flex:1;font-size:13px" onclick="exportData()">&#x2B07; Export</button>
+        <button class="btn btn-ghost" style="flex:1;font-size:13px" onclick="importData()">&#x2B06; Import</button>
+      </div>
+      <p style="font-size:11px;color:var(--t3);line-height:1.5">Export saves XP, tasks &amp; progress as JSON. Import restores from a backup.</p>
+    </div>
+    <div class="set-sec"><h4>Danger Zone</h4>
+      <button class="btn btn-red" style="width:100%" onclick="resetAll()">Reset All Data</button>
+    </div>
+  </div>
+</div>
+
+<nav id="nav-mobile">
+    <button class="mn-item on" data-t="home" onclick="go('home',this)">
+      <svg viewBox="0 0 576 512"><path d="M575.8 255.5c0 18-15 32.1-32 32.1l-32 0 .7 160.2c0 2.7-.2 5.4-.5 8.1l0 16.2c0 22.1-17.9 40-40 40l-16 0c-1.1 0-2.2 0-3.3-.1c-1.4.1-2.8.1-4.2.1L416 512l-24 0c-22.1 0-40-17.9-40-40l0-24 0-64c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32 14.3-32 32l0 64 0 24c0 22.1-17.9 40-40 40l-24 0-31.9 0c-1.5 0-3-.1-4.5-.2c-1.2.1-2.4.2-3.6.2l-16 0c-22.1 0-40-17.9-40-40l0-112c0-.9 0-1.9.1-2.8l0-69.7-32 0c-18 0-32-14-32-32.1c0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z"/></svg>Home
+    </button>
+    <button class="mn-item" data-t="dash" onclick="go('dash',this)">
+      <svg viewBox="0 0 576 512"><path d="M304 240l0-223.4c0-9 7-16.6 16-16.6C443.7 0 544 100.3 544 224c0 9-7.6 16-16.6 16L304 240zM32 272C32 150.7 122.1 50.3 239 34.3c9.2-1.3 17 5.9 17 15.2L256 288 412.5 444.5c6.7 6.7 6.2 17.7-1.5 23.1C371.8 495.6 323.8 512 272 512C139.5 512 32 404.6 32 272zm526.4 16c9.3 0 16.5 7.8 15.2 17c-7.7 55.5-34.6 105-73.2 142.4c-6.4 6.1-16.6 5.5-22.6-.9L320 288l238.4 0z"/></svg>Dash
+    </button>
+    <button class="mn-item" data-t="focus" onclick="go('focus',this)">
+      <svg viewBox="0 0 448 512"><path d="M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l16 0 0 34.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-104-76.3-190.2-176-205.6l0-34.4 16 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L176 0zm72 192l0 128c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-128c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg>Focus
+    </button>
+    <button class="mn-item" data-t="tasks" onclick="go('tasks',this)">
+      <svg viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg>Tasks
+    </button>
+    <button class="mn-item" data-t="prog" onclick="go('prog',this)">
+      <svg viewBox="0 0 512 512"><path d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64L0 400c0 44.2 35.8 80 80 80l400 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 416c-8.8 0-16-7.2-16-16L64 64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"/></svg>Progress
+    </button>
+    <button class="mn-item" data-t="ai" onclick="go('ai',this)">
+      <svg viewBox="0 0 640 512"><path d="M320 0c17.7 0 32 14.3 32 32l0 64 120 0c39.8 0 72 32.2 72 72l0 272c0 39.8-32.2 72-72 72l-240 0c-39.8 0-72-32.2-72-72l0-272c0-39.8 32.2-72 72-72l120 0 0-64c0-17.7 14.3-32 32-32zM208 384c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-32 0zm144 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-32 0zm-144-64c-8.8 0-16 7.2-16 16s7.2 16 16 16l224 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-224 0zM256 256a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm160-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM0 336c0-26.5 21.5-48 48-48l16 0 0 128-16 0c-26.5 0-48-21.5-48-48l0-32zm576 32c0 26.5-21.5 48-48 48l-16 0 0-128 16 0c26.5 0 48 21.5 48 48l0 32z"/></svg>AI Help
+    </button>
+  </nav>
+
+  <nav id="nav-desktop">
+    <div class="logo-w">Student <span>OS</span></div>
+    <button class="sd-item on" data-t="home" onclick="go('home',this)"><svg viewBox="0 0 576 512"><path d="M575.8 255.5c0 18-15 32.1-32 32.1l-32 0 .7 160.2c0 2.7-.2 5.4-.5 8.1l0 16.2c0 22.1-17.9 40-40 40l-16 0c-1.1 0-2.2 0-3.3-.1c-1.4.1-2.8.1-4.2.1L416 512l-24 0c-22.1 0-40-17.9-40-40l0-24 0-64c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32 14.3-32 32l0 64 0 24c0 22.1-17.9 40-40 40l-24 0-31.9 0c-1.5 0-3-.1-4.5-.2c-1.2.1-2.4.2-3.6.2l-16 0c-22.1 0-40-17.9-40-40l0-112c0-.9 0-1.9.1-2.8l0-69.7-32 0c-18 0-32-14-32-32.1c0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z"/></svg> Home</button>
+    <button class="sd-item" data-t="dash" onclick="go('dash',this)"><svg viewBox="0 0 576 512"><path d="M304 240l0-223.4c0-9 7-16.6 16-16.6C443.7 0 544 100.3 544 224c0 9-7.6 16-16.6 16L304 240zM32 272C32 150.7 122.1 50.3 239 34.3c9.2-1.3 17 5.9 17 15.2L256 288 412.5 444.5c6.7 6.7 6.2 17.7-1.5 23.1C371.8 495.6 323.8 512 272 512C139.5 512 32 404.6 32 272zm526.4 16c9.3 0 16.5 7.8 15.2 17c-7.7 55.5-34.6 105-73.2 142.4c-6.4 6.1-16.6 5.5-22.6-.9L320 288l238.4 0z"/></svg> Dashboard</button>
+    <button class="sd-item" data-t="focus" onclick="go('focus',this)"><svg viewBox="0 0 448 512"><path d="M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l16 0 0 34.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-104-76.3-190.2-176-205.6l0-34.4 16 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L176 0zm72 192l0 128c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-128c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg> Focus</button>
+    <button class="sd-item" data-t="tasks" onclick="go('tasks',this)"><svg viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg> Tasks</button>
+    <button class="sd-item" data-t="prog" onclick="go('prog',this)"><svg viewBox="0 0 512 512"><path d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64L0 400c0 44.2 35.8 80 80 80l400 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 416c-8.8 0-16-7.2-16-16L64 64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"/></svg> Progress</button>
+    <button class="sd-item" data-t="ai" onclick="go('ai',this)"><svg viewBox="0 0 640 512"><path d="M320 0c17.7 0 32 14.3 32 32l0 64 120 0c39.8 0 72 32.2 72 72l0 272c0 39.8-32.2 72-72 72l-240 0c-39.8 0-72-32.2-72-72l0-272c0-39.8 32.2-72 72-72l120 0 0-64c0-17.7 14.3-32 32-32zM208 384c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-32 0zm144 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-32 0zm-144-64c-8.8 0-16 7.2-16 16s7.2 16 16 16l224 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-224 0zM256 256a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm160-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM0 336c0-26.5 21.5-48 48-48l16 0 0 128-16 0c-26.5 0-48-21.5-48-48l0-32zm576 32c0 26.5-21.5 48-48 48l-16 0 0-128 16 0c26.5 0 48 21.5 48 48l0 32z"/></svg> AI Help</button>
+  </nav>
+
+  <main id="main">
 
     <!-- HOME -->
     <section class="page on" id="pg-home">
-      <div class="section">
+      <div class="home-pg">
+        <!-- Greeting -->
         <div class="hm-top">
           <div>
             <div class="hm-greet-time" id="hm-greet-time">Good morning</div>
-            <div class="hm-greet-name" id="hm-greet-name">${esc(state.name)}</div>
+            <div class="hm-greet-name" id="hm-greet-name">Student</div>
           </div>
-          <button class="btn btn-ghost btn-sm hm-set-btn" onclick="openSettings()">&#x2699; Settings</button>
+          <button class="hm-set-btn" onclick="openSettings()">&#x2699;</button>
         </div>
 
+        <!-- Brutal stat -->
         <div class="hm-stat st-zero" id="hm-stat">
           <div class="hm-stat-num" id="hm-stat-num">0 min</div>
           <div class="hm-stat-sub" id="hm-stat-sub">studied today</div>
@@ -104,6 +215,7 @@ function createAppShell() {
           <div class="hm-urgency" id="hm-urgency">&#x23F3; Calculating...</div>
         </div>
 
+        <!-- Level + XP -->
         <div class="hm-level">
           <div class="hm-level-row">
             <div>
@@ -115,6 +227,7 @@ function createAppShell() {
           <div class="hm-xp-track"><div class="hm-xp-bar" id="hm-xp-bar" style="width:0%"></div></div>
         </div>
 
+        <!-- Daily mission -->
         <div class="hm-mission">
           <div>
             <div class="hm-mission-lbl">Daily Mission</div>
@@ -123,335 +236,204 @@ function createAppShell() {
           <div class="hm-mission-xp">+50 XP</div>
         </div>
 
-        <button class="btn btn-primary w-full" onclick="go('focus')" style="margin-bottom:12px">
+        <!-- PRIMARY CTA -->
+        <button class="hm-cta" onclick="go('focus',null)">
           &#x1F525; Start Focus Session
         </button>
 
-        <div class="grid-2" style="margin-bottom:12px">
-          <button class="btn btn-secondary" onclick="showModal('task-modal')">&#x2795; Add Task</button>
-          <button class="btn btn-secondary" onclick="go('tasks')">&#x1F4CB; View Tasks</button>
+        <!-- Quick actions -->
+        <div class="hm-quick">
+          <button class="hm-qbtn" onclick="showModal('task-modal')">&#x2795; Add Task</button>
+          <button class="hm-qbtn" onclick="go('tasks',null)">&#x1F4CB; View Tasks</button>
         </div>
 
-        <div class="grid-3" style="margin-bottom:12px">
-          <div class="card stat">
-            <div class="stat-num" id="hm-streak" style="color:var(--amber)">0</div>
-            <div class="stat-label">Streak</div>
+        <!-- 3 stat chips -->
+        <div class="hm-chips">
+          <div class="hm-chip">
+            <div class="hm-chip-val" id="hm-streak" style="color:var(--amber)">0</div>
+            <div class="hm-chip-lbl">Streak</div>
           </div>
-          <div class="card stat">
-            <div class="stat-num" id="hm-sessions" style="color:var(--blue)">0</div>
-            <div class="stat-label">Sessions</div>
+          <div class="hm-chip">
+            <div class="hm-chip-val" id="hm-sessions" style="color:var(--blue)">0</div>
+            <div class="hm-chip-lbl">Sessions</div>
           </div>
-          <div class="card stat">
-            <div class="stat-num" id="hm-done" style="color:var(--green)">0</div>
-            <div class="stat-label">Done Today</div>
+          <div class="hm-chip">
+            <div class="hm-chip-val" id="hm-done" style="color:var(--green)">0</div>
+            <div class="hm-chip-lbl">Done Today</div>
           </div>
         </div>
 
-        <div class="hm-coach card" style="display:flex;gap:12px;align-items:flex-start">
-          <div style="font-size:24px">&#x1F916;</div>
-          <div class="hm-coach-txt" id="hm-coach" style="font-size:.9rem;color:var(--t2);line-height:1.6">Analyzing your study patterns...</div>
+        <!-- AI Coach -->
+        <div class="hm-coach">
+          <div class="hm-coach-av">&#x1F916;</div>
+          <div class="hm-coach-txt" id="hm-coach">Analyzing your study patterns...</div>
         </div>
       </div>
     </section>
 
     <!-- DASHBOARD -->
     <section class="page" id="pg-dash">
-      <div class="section">
-        <div class="section-title">Dashboard</div>
-        <div class="grid-2" style="margin-bottom:12px">
-          <div class="card stat"><div class="stat-num" id="d-streak" style="color:var(--amber)">0</div><div class="stat-label">Streak</div></div>
-          <div class="card stat"><div class="stat-num" id="d-xp" style="color:var(--cyan)">0</div><div class="stat-label">Total XP</div></div>
-          <div class="card stat"><div class="stat-num" id="d-level" style="color:var(--purple)">1</div><div class="stat-label" id="d-ltitle">Rookie</div></div>
-          <div class="card stat"><div class="stat-num" id="d-done" style="color:var(--green)">0</div><div class="stat-label">Done Today</div></div>
-          <div class="card stat"><div class="stat-num" id="d-fmin" style="color:var(--blue)">0</div><div class="stat-label">Focus Min</div></div>
-          <div class="card" style="grid-column:1/-1"><p id="quote-el" style="font-style:italic;color:var(--t2)"></p></div>
+      <div class="pg-head">
+        <div>
+          <div class="pg-greet" id="greet"></div>
+          <div class="pg-title">Hey, <input class="uname-in" id="uname-in" value="Student" onblur="saveUname()" onkeydown="if(event.key==='Enter')this.blur()" maxlength="20"></div>
         </div>
-        <div class="flex gap-8" style="margin-bottom:12px">
-          <button class="btn btn-primary btn-sm" onclick="go('focus')">&#x25B6; Start Focus</button>
-          <button class="btn btn-secondary btn-sm" onclick="showModal('task-modal')">+ Add Task</button>
+        <button class="btn btn-ghost" onclick="openSettings()" style="align-self:flex-start;margin-top:22px">&#x2699; Settings</button>
+      </div>
+      <div class="dbg">
+        <div class="card sc c-amber"><div class="sc-lbl">&#x1F525; Streak</div><div class="sc-val" id="d-streak">0</div><div class="sc-sub">days in a row</div></div>
+        <div class="card sc c-cyan"><div class="sc-lbl">&#x2B50; Total XP</div><div class="sc-val" id="d-xp">0</div><div class="sc-sub">points earned</div></div>
+        <div class="card sc c-purple"><div class="sc-lbl">&#x1F3C6; Level</div><div class="sc-val" id="d-level">1</div><div class="sc-sub" id="d-ltitle">Rookie</div></div>
+        <div class="card sc c-green"><div class="sc-lbl">&#x2705; Done Today</div><div class="sc-val" id="d-done">0</div><div class="sc-sub">tasks today</div></div>
+        <div class="card sc c-blue"><div class="sc-lbl">&#x23F0; Focus Min</div><div class="sc-val" id="d-fmin">0</div><div class="sc-sub">minutes today</div></div>
+        <div class="card quote-card" style="grid-column:1/-1"><p id="quote-el"></p></div>
+        <div class="qa-row" style="grid-column:1/-1">
+          <button class="btn btn-blue" onclick="go('focus',null)">&#x25B6; Start Focus</button>
+          <button class="btn btn-ghost" onclick="showModal('task-modal')">+ Add Task</button>
         </div>
-        <div class="card"><div class="section-title" style="font-size:.85rem">This Week</div><div class="week-row" id="week-row" style="display:flex;gap:8px"></div></div>
+        <div class="card week-card" style="grid-column:1/-1">
+          <div class="sec-ttl" style="margin-bottom:10px">This Week</div>
+          <div class="week-row" id="week-row"></div>
+        </div>
       </div>
     </section>
 
     <!-- FOCUS -->
     <section class="page" id="pg-focus">
-      <div class="section">
-        <div class="section-title">Focus Mode</div>
-        <div class="mode-row">
-          <button class="mode-btn on" data-m="focus" onclick="setMode('focus')">&#x23F1; Focus</button>
-          <button class="mode-btn" data-m="short" onclick="setMode('short')">&#x2615; Short</button>
-          <button class="mode-btn" data-m="long" onclick="setMode('long')">&#x1F319; Long</button>
+      <div class="focus-wrap">
+        <div class="focus-title">Focus Mode</div>
+        <div class="mode-row" id="mode-row">
+          <button class="mt on" data-m="focus" onclick="setMode('focus')">&#x23F1; Focus</button>
+          <button class="mt" data-m="short" onclick="setMode('short')">&#x2615; Short</button>
+          <button class="mt" data-m="long" onclick="setMode('long')">&#x1F319; Long</button>
         </div>
         <div class="ring-wrap rm-focus" id="ring-wrap">
           <svg class="ring-svg" viewBox="0 0 250 250">
             <circle class="ring-bg" cx="125" cy="125" r="108"/>
-            <circle class="ring" id="ring" cx="125" cy="125" r="108" stroke-dasharray="678.6" stroke-dashoffset="0"/>
+            <circle class="ring-prog" id="ring" cx="125" cy="125" r="108" stroke-dasharray="678.6" stroke-dashoffset="0"/>
           </svg>
-          <div class="ring-time" id="ring-time">25:00</div>
-          <div class="ring-label" id="ring-lbl">FOCUS</div>
+          <div class="ring-inner">
+            <div class="ring-time" id="ring-time">25:00</div>
+            <div class="ring-lbl" id="ring-lbl">FOCUS</div>
+          </div>
         </div>
-        <div class="flex gap-8" style="justify-content:center;margin:16px 0">
-          <button class="btn btn-secondary btn-sm" onclick="resetTimer()">&#x21BA;</button>
-          <button class="btn btn-primary" id="play-btn" onclick="toggleTimer()" style="min-width:60px"><span id="play-ico">&#x25B6;</span></button>
-          <button class="btn btn-secondary btn-sm" onclick="skipMode()">&#x23ED;</button>
+        <div class="ctrl-row">
+          <button class="c-btn c-btn-sm" onclick="resetTimer()">&#x21BA;</button>
+          <button class="c-btn c-btn-main" id="play-btn" onclick="toggleTimer()"><span id="play-ico">&#x25B6;</span></button>
+          <button class="c-btn c-btn-sm" onclick="skipMode()">&#x23ED;</button>
         </div>
-        <div class="dots" id="dots" style="margin-bottom:12px">
-          <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <div class="dots-row">
+          <div class="dots-lbl">Session Progress</div>
+          <div class="dots" id="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
         </div>
-        <div class="flex gap-8" style="justify-content:center;margin-bottom:12px">
-          <button class="chip s-btn" data-s="rain">&#x1F327; Rain</button>
-          <button class="chip s-btn" data-s="waves">&#x1F30A; Waves</button>
-          <button class="chip s-btn" data-s="white">&#x25A1; Noise</button>
+        <div class="sound-row">
+          <button class="s-btn" onclick="tgSound(this)" data-s="rain">&#x1F327; Rain</button>
+          <button class="s-btn" onclick="tgSound(this)" data-s="waves">&#x1F30A; Waves</button>
+          <button class="s-btn" onclick="tgSound(this)" data-s="white">&#x25A1; Noise</button>
         </div>
-        <div class="section-title" style="font-size:.85rem">Recent Sessions</div>
-        <div id="sh-list"></div>
-        <button class="btn btn-ghost w-full" onclick="enterDF()" style="margin-top:12px">&#x1F319; Deep Focus</button>
+        <div class="sh-list"><h4>Recent Sessions</h4><div id="sh-list"></div></div>
+        <button class="btn btn-ghost deep-btn" onclick="enterDF()">&#x1F319; Deep Focus</button>
       </div>
     </section>
 
     <!-- TASKS -->
     <section class="page" id="pg-tasks">
-      <div class="section">
-        <div class="flex justify-between items-center gap-8" style="margin-bottom:12px">
-          <div class="section-title" style="margin-bottom:0">Daily Missions</div>
-          <button class="btn btn-primary btn-sm" onclick="showModal('task-modal')">+ New</button>
+      <div class="tasks-wrap">
+        <div class="tasks-head">
+          <div class="pg-title" style="font-family:var(--fh);font-size:21px;font-weight:800;letter-spacing:-.3px">Daily Missions</div>
+          <button class="btn btn-blue" onclick="showModal('task-modal')">+ New</button>
         </div>
-        <div class="flex justify-between items-center gap-8" style="margin-bottom:12px">
-          <div class="flex gap-8" id="ftabs">
-            <button class="chip on" data-f="all">All</button>
-            <button class="chip" data-f="active">Active</button>
-            <button class="chip" data-f="completed">Done</button>
-            <button class="chip" data-f="physics">Physics</button>
-            <button class="chip" data-f="math">Math</button>
+        <div class="filter-row">
+          <div class="ftabs" id="ftabs">
+            <button class="ftab on" onclick="setFilter('all',this)">All</button>
+            <button class="ftab" onclick="setFilter('active',this)">Active</button>
+            <button class="ftab" onclick="setFilter('completed',this)">Done</button>
+            <button class="ftab" onclick="setFilter('physics',this)">Physics</button>
+            <button class="ftab" onclick="setFilter('math',this)">Math</button>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="dailyReset()">&#x21BA; Reset</button>
+          <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 11px" onclick="dailyReset()">&#x21BA; Reset</button>
         </div>
-        <div class="section-title" style="font-size:.8rem;color:var(--t3)">Pinned</div>
-        <div id="pinned-list"></div>
-        <div class="section-title" style="font-size:.8rem;color:var(--t3);margin-top:16px">All Tasks</div>
-        <div id="all-list"></div>
+        <div class="sec-ttl">Pinned</div><div id="pinned-list"></div>
+        <div style="margin-top:18px"><div class="sec-ttl">All Tasks</div><div id="all-list"></div></div>
       </div>
     </section>
 
     <!-- PROGRESS -->
     <section class="page" id="pg-prog">
-      <div class="section">
-        <div class="section-title">Your Progress</div>
-        <div class="card" style="margin-bottom:12px">
-          <div class="flex justify-between items-center gap-8" style="margin-bottom:8px">
-            <div class="badge"><span id="p-lv">LV 1</span> &middot; <span id="p-title">Rookie</span></div>
-            <div style="font-size:.8rem;color:var(--t3)"><b id="p-cur">0</b> / <b id="p-max">100</b> XP</div>
+      <div class="prog-wrap">
+        <div class="pg-title" style="font-family:var(--fh);font-size:21px;font-weight:800;margin-bottom:16px;letter-spacing:-.3px">Your Progress</div>
+        <div class="card xp-card">
+          <div class="xp-top">
+            <div class="lv-badge"><span class="lv-num" id="p-lv">LV 1</span><span class="lv-title-t" id="p-title">Rookie</span></div>
+            <div class="xp-nums"><b id="p-cur">0</b> / <b id="p-max">100</b> XP</div>
           </div>
-          <div class="xp-bar-wrap"><div class="xp-bar" id="xp-bar" style="width:0%"></div></div>
+          <div class="xp-bar-out"><div class="xp-bar-in" id="xp-bar" style="width:0%"></div></div>
         </div>
-        <div class="grid-3" style="margin-bottom:12px">
-          <div class="card stat"><div class="stat-num" id="ps-xp" style="color:var(--cyan)">0</div><div class="stat-label">Total XP</div></div>
-          <div class="card stat"><div class="stat-num" id="ps-sess" style="color:var(--blue)">0</div><div class="stat-label">Sessions</div></div>
-          <div class="card stat"><div class="stat-num" id="ps-tasks" style="color:var(--green)">0</div><div class="stat-label">Tasks Done</div></div>
-          <div class="card stat"><div class="stat-num" id="ps-mins" style="color:var(--purple)">0</div><div class="stat-label">Focus Mins</div></div>
-          <div class="card stat"><div class="stat-num" id="ps-best" style="color:var(--amber)">0</div><div class="stat-label">Best Streak</div></div>
-          <div class="card stat"><div class="stat-num" id="ps-lv" style="color:var(--pink)">1</div><div class="stat-label">Level</div></div>
+        <div class="sg">
+          <div class="card ms"><div class="ms-val" id="ps-xp" style="color:var(--cyan)">0</div><div class="ms-lbl">Total XP</div></div>
+          <div class="card ms"><div class="ms-val" id="ps-sess" style="color:var(--blue)">0</div><div class="ms-lbl">Sessions</div></div>
+          <div class="card ms"><div class="ms-val" id="ps-tasks" style="color:var(--green)">0</div><div class="ms-lbl">Tasks Done</div></div>
+          <div class="card ms"><div class="ms-val" id="ps-mins" style="color:var(--purple)">0</div><div class="ms-lbl">Focus Mins</div></div>
+          <div class="card ms"><div class="ms-val" id="ps-best" style="color:var(--amber)">0</div><div class="ms-lbl">Best Streak</div></div>
+          <div class="card ms"><div class="ms-val" id="ps-lv" style="color:var(--pink)">1</div><div class="ms-lbl">Level</div></div>
         </div>
-        <div class="card" style="margin-bottom:12px">
-          <div class="section-title" style="font-size:.85rem">Weekly XP</div>
-          <div class="bar-chart" id="bar-wrap"></div>
-        </div>
-        <div class="card" style="margin-bottom:12px">
-          <div class="section-title" style="font-size:.85rem">30-Day Activity</div>
-          <div class="hm30" id="hm30"></div>
-        </div>
-        <div class="card">
-          <div class="section-title" style="font-size:.85rem">Achievements</div>
-          <div class="ach-grid" id="ach-grid"></div>
-        </div>
+        <div class="card bar-card"><div class="sec-ttl" style="margin-bottom:0">Weekly XP</div><div class="bar-wrap" id="bar-wrap"></div></div>
+        <div class="card hm30-card"><div class="sec-ttl" style="margin-bottom:0">30-Day Activity</div><div class="hm30" id="hm30"></div></div>
+        <div class="card ach-card"><div class="sec-ttl" style="margin-bottom:0">Achievements</div><div class="ach-grid" id="ach-grid"></div></div>
       </div>
     </section>
 
     <!-- AI HELP -->
     <section class="page" id="pg-ai">
-      <div class="section" style="display:flex;flex-direction:column;height:calc(100vh - 200px);min-height:400px">
-        <div class="flex justify-between items-center gap-8" style="margin-bottom:8px">
-          <div class="section-title" style="margin-bottom:0">&#x1F916; AI Study Help</div>
-          <button class="btn btn-ghost btn-sm" onclick="clearChat()">Clear chat</button>
+      <div class="ai-shell">
+        <div class="ai-head">
+          <h2>&#x1F916; AI Study Help</h2>
+          <div class="ai-head-sub">Ask anything. I'll actually explain it.</div>
+          <button class="btn btn-ghost" style="margin-top:10px;font-size:12px;padding:5px 11px" onclick="clearChat()">Clear chat</button>
         </div>
-        <div style="font-size:.8rem;color:var(--t3);margin-bottom:12px">Ask anything. I'll actually explain it.</div>
-        <div class="flex gap-8" style="margin-bottom:12px;overflow-x:auto">
+        <div class="chips">
           <button class="chip" onclick="useChip(this)">Newton's Laws</button>
           <button class="chip" onclick="useChip(this)">Photosynthesis</button>
+          <button class="chip" onclick="useChip(this)">Opportunity cost</button>
           <button class="chip" onclick="useChip(this)">Recursion</button>
+          <button class="chip" onclick="useChip(this)">Gravity</button>
+          <button class="chip" onclick="useChip(this)">Osmosis</button>
           <button class="chip" onclick="useChip(this)">Derivatives</button>
+          <button class="chip" onclick="useChip(this)">Mitosis vs Meiosis</button>
+          <button class="chip" onclick="useChip(this)">Acids and bases</button>
+          <button class="chip" onclick="useChip(this)">Ohm's Law</button>
+          <button class="chip" onclick="useChip(this)">Supply and demand</button>
+          <button class="chip" onclick="useChip(this)">Quadratic formula</button>
         </div>
-        <div class="ai-chat" style="flex:1;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column">
-          <div class="msgs" id="msgs" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px"></div>
-          <div class="ai-inp-area">
-            <div class="ai-inp-row">
-              <textarea class="ai-inp" id="ai-inp" rows="1" placeholder="Ask anything..." style="flex:1;min-height:44px;max-height:110px;resize:none;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--border);color:var(--t1)"></textarea>
-              <button class="ai-send" onclick="sendAI()" style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff;border:none;font-size:1.2rem;display:flex;align-items:center;justify-content:center">&#x27A4;</button>
-            </div>
+        <div class="msgs" id="msgs"></div>
+        <div class="ai-inp-area">
+          <div class="ai-inp-row">
+            <textarea class="ai-inp" id="ai-inp" rows="1" placeholder="Ask anything..." onkeydown="aiKey(event)" oninput="autoR(this)"></textarea>
+            <button class="ai-send" onclick="sendAI()">&#x27A4;</button>
           </div>
         </div>
       </div>
     </section>
 
   </main>
-
-  <nav class="bottom-nav" id="bottom-nav">
-    <button class="bn-item on" data-t="home"><span class="bn-ico">&#x1F3E0;</span> Home</button>
-    <button class="bn-item" data-t="dash"><span class="bn-ico">&#x1F4CA;</span> Dash</button>
-    <button class="bn-item" data-t="focus"><span class="bn-ico">&#x23F1;</span> Focus</button>
-    <button class="bn-item" data-t="tasks"><span class="bn-ico">&#x2705;</span> Tasks</button>
-    <button class="bn-item" data-t="prog"><span class="bn-ico">&#x1F3C6;</span> Progress</button>
-    <button class="bn-item" data-t="ai"><span class="bn-ico">&#x1F916;</span> AI</button>
-  </nav>
 </div>
 
-<!-- Task Modal -->
-<div class="modal-overlay" id="task-modal" onclick="onOverlayClick(event,'task-modal')">
-  <div class="modal">
-    <div class="modal-title">New Mission</div>
-    <div class="setting-row"><label class="setting-title">Task Name</label></div>
-    <input class="f-input" id="t-name" placeholder="e.g. Solve 20 integration problems..." maxlength="80" style="margin-bottom:12px">
-    <div class="grid-2" style="margin-bottom:12px">
-      <div>
-        <label class="setting-title" style="display:block;margin-bottom:6px;font-size:.8rem">Subject</label>
-        <select class="f-input" id="t-sub">
-          <option value="math">Math</option><option value="physics">Physics</option>
-          <option value="chemistry">Chemistry</option><option value="english">English</option>
-          <option value="history">History</option><option value="biology">Biology</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <div>
-        <label class="setting-title" style="display:block;margin-bottom:6px;font-size:.8rem">Est. Time</label>
-        <input class="f-input" id="t-time" placeholder="30 min" maxlength="20">
-      </div>
-    </div>
-    <div style="margin-bottom:12px">
-      <label class="setting-title" style="display:block;margin-bottom:6px;font-size:.8rem">Priority</label>
-      <div class="flex gap-8" id="pri-row">
-        <button class="chip s-h" data-p="high" style="background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3)">&#x1F534; High</button>
-        <button class="chip" data-p="medium">&#x1F7E1; Med</button>
-        <button class="chip" data-p="low">&#x1F7E2; Low</button>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="hideModal('task-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="addTask()">Add Mission</button>
-    </div>
-  </div>
-</div>
 
-<!-- Settings Modal -->
-<div class="modal-overlay" id="set-modal" onclick="onOverlayClick(event,'set-modal')">
-  <div class="modal">
-    <div class="modal-title">Settings</div>
 
-    <div class="setting-row">
-      <div class="setting-label">
-        <span class="setting-title">Display Name</span>
-        <span class="setting-desc">Your study profile name</span>
-      </div>
-    </div>
-    <div class="flex gap-8" style="margin-bottom:16px">
-      <input class="f-input" id="set-name" placeholder="Your name" maxlength="24" style="flex:1">
-      <button class="btn btn-primary btn-sm" onclick="saveName()">Save</button>
-    </div>
+<!-- PWA install button ΓÇö hidden until browser fires beforeinstallprompt -->
+<button id="pwa-install-btn" onclick="installPWA()" style="display:none;position:fixed;bottom:calc(var(--nh)+16px);left:50%;transform:translateX(-50%);z-index:300;align-items:center;gap:8px;padding:10px 20px;background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:50px;font-family:var(--fh);font-size:13px;font-weight:700;box-shadow:0 8px 28px rgba(139,92,246,.4);cursor:pointer;white-space:nowrap">
+  ≡ƒô▓ Install App
+</button>
 
-    <div class="setting-row">
-      <div class="setting-label">
-        <span class="setting-title">Focus Duration</span>
-        <span class="setting-desc">Minutes per session</span>
-      </div>
-    </div>
-    <div class="dur-btns" id="dur-row" style="margin-bottom:16px">
-      <button class="d-btn" data-d="15">15</button>
-      <button class="d-btn" data-d="20">20</button>
-      <button class="d-btn on" data-d="25">25</button>
-      <button class="d-btn" data-d="30">30</button>
-      <button class="d-btn" data-d="45">45</button>
-      <button class="d-btn" data-d="60">60</button>
-    </div>
 
-    <div class="setting-row" style="flex-direction:column;align-items:flex-start">
-      <div class="setting-label" style="margin-bottom:8px">
-        <span class="setting-title">AI Provider</span>
-        <span class="setting-desc">Choose your AI backend</span>
-      </div>
-      <div class="provider-select" id="provider-select">
-        <button class="provider-btn active" data-provider="anthropic">&#x1F916; Claude</button>
-        <button class="provider-btn" data-provider="gemini">&#x1F30D; Gemini</button>
-      </div>
-    </div>
-
-    <div class="setting-row" style="flex-direction:column;align-items:flex-start;margin-bottom:8px">
-      <div class="setting-label" style="margin-bottom:8px">
-        <span class="setting-title">API Key</span>
-        <span class="setting-desc" id="ai-status-desc">Add your API key for real AI answers</span>
-      </div>
-      <div class="flex gap-8" style="width:100%">
-        <input class="f-input" id="api-key-inp" type="password" placeholder="sk-ant-..." maxlength="120" style="font-family:monospace;font-size:.75rem;flex:1">
-        <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Save</button>
-      </div>
-      <div class="api-key-hint" id="ai-status"></div>
-    </div>
-
-    <div class="setting-row">
-      <div class="setting-label">
-        <span class="setting-title">Study Reminders</span>
-        <span class="setting-desc">Get nudged when you haven't studied</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="notif-toggle" onchange="toggleNotifs(this.checked)">
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-
-    <div class="setting-row">
-      <div class="setting-label">
-        <span class="setting-title">Backup &amp; Restore</span>
-        <span class="setting-desc">Export or import your progress</span>
-      </div>
-    </div>
-    <div class="flex gap-8" style="margin-bottom:16px">
-      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="exportData()">&#x2B07; Export</button>
-      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="importData()">&#x2B06; Import</button>
-    </div>
-
-    <div class="setting-row">
-      <div class="setting-label">
-        <span class="setting-title" style="color:var(--red)">Danger Zone</span>
-        <span class="setting-desc">Reset all data permanently</span>
-      </div>
-    </div>
-    <button class="btn btn-secondary btn-sm w-full" style="border-color:var(--red);color:var(--red)" onclick="resetAll()">Reset All Data</button>
-  </div>
-</div>
-
-<!-- Level Up Overlay -->
-<div id="lu-overlay">
-  <div class="modal" style="text-align:center;max-width:340px;background:linear-gradient(135deg,#1a1625,#0d0f1a);border-color:var(--amber)">
-    <div style="font-size:3rem;margin-bottom:8px">&#x1F3C6;</div>
-    <div id="lu-badge" style="font-size:1.5rem;font-weight:700;color:var(--amber)">Level 1 &mdash; Rookie</div>
-    <div id="lu-sub" style="color:var(--t2);margin-bottom:16px">You reached a new level!</div>
-    <button class="btn btn-primary" onclick="closeLevelUp()" style="margin-top:8px">Let's Go &#x1F525;</button>
-    <div id="confetti" style="position:fixed;inset:0;pointer-events:none;z-index:350;overflow:hidden"></div>
-  </div>
-</div>
-
-<!-- Deep Focus Exit -->
-<button class="btn btn-ghost btn-sm exit-df" id="exit-df-btn" onclick="exitDF()" style="display:none">&#x26F6; Exit Deep Focus</button>
-
-<!-- PWA Install Button -->
-<button id="pwa-install-btn" onclick="installPWA()" style="display:none">&#x1F4F2; Install App</button>
 `;
 
-  // Move PWA install button, confetti, and deep focus exit to body level
   document.body.prepend(app.querySelector('#exit-df-btn'));
   document.body.appendChild(app.querySelector('#lu-overlay'));
   document.body.appendChild(app.querySelector('#pwa-install-btn'));
   document.body.appendChild(app.querySelector('#confetti'));
 }
+
 
 function setupNavigation() {
   document.querySelectorAll('.nav-btn, .bn-item').forEach(btn => {
@@ -747,18 +729,14 @@ window.installPWA = function () {
 };
 
 /* ── Sound Toggle ── */
-function setupSoundButtons() {
-  document.querySelectorAll('.s-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const was = btn.classList.contains('on');
-      document.querySelectorAll('.s-btn').forEach(b => b.classList.remove('on'));
-      if (!was) {
-        btn.classList.add('on');
-        toast('Sound', btn.dataset.s + ' (UI only)', 'cyan');
-      }
-    });
-  });
-}
+window.tgSound = function (btn) {
+  const was = btn.classList.contains('on');
+  document.querySelectorAll('.s-btn').forEach(b => b.classList.remove('on'));
+  if (!was) {
+    btn.classList.add('on');
+    toast('Sound', btn.dataset.s + ' (UI only)', 'cyan');
+  }
+};
 
 /* ── Deep Focus ── */
 window.enterDF = function () {
@@ -777,34 +755,32 @@ function setupExitDF() {
 }
 
 /* ── Global Exports ── */
-window.go = go;
-window.showModal = showModal;
-window.hideModal = hideModal;
+window.closeLevelUp = closeLevelUp;
 window.onOverlayClick = onOverlayClick;
+window.hideModal = hideModal;
+window.selectPriority = selectPriority;
 window.addTask = addTask;
-window.toggleTask = toggleTask;
-window.delTask = deleteTask;
-window.dailyReset = dailyReset;
-window.setMode = setMode;
-window.toggleTimer = toggleTimer;
-window.resetTimer = resetTimer;
-window.skipMode = skipMode;
-window.openSettings = openSettings;
-window.saveApiKey = saveApiKey;
 window.saveName = saveName;
-window.setDur = setDur;
-window.resetAll = resetAll;
-window.exportData = exportData;
-window.importData = importData;
-window.toggleNotifs = toggleNotifs;
+window.saveApiKey = saveApiKey;
 window.sendAI = sendAI;
 window.useChip = useChip;
 window.clearChat = clearChat;
-window.closeLevelUp = closeLevelUp;
-window.aiKey = aiKey;
-window.autoR = autoR;
+window.toggleTimer = toggleTimer;
+window.resetTimer = resetTimer;
+window.skipMode = skipMode;
+window.setMode = setMode;
+window.enterDF = enterDF;
+window.exitDF = exitDF;
+window.installPWA = installPWA;
 window.go = go;
 window.showModal = showModal;
-window.hideModal = hideModal;
-window.onOverlayClick = onOverlayClick;
+window.setFilter = setFilter;
 window.dailyReset = dailyReset;
+window.toggleNotifs = toggleNotifs;
+window.exportData = exportData;
+window.importData = importData;
+window.resetAll = resetAll;
+window.saveUname = saveUname;
+window.tgSound = tgSound;
+window.aiKey = aiKey;
+window.autoR = autoR;
