@@ -59,33 +59,31 @@ export function createFragment(html) {
   return template.content;
 }
 
-export function toast(title, msg, color = 'blue') {
-  const colors = {
-    blue: 'var(--blue)',
-    green: 'var(--green)',
-    amber: 'var(--amber)',
-    pink: 'var(--pink)',
-    purple: 'var(--purple)',
-    cyan: 'var(--cyan)',
-    red: 'var(--red)'
-  };
-
-  const container = document.getElementById('toasts');
-  if (!container) return;
-
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.innerHTML = `
-    <span style="font-size:16px;color:${colors[color] || colors.blue}">●</span>
-    <div class="toast-txt"><strong>${esc(title)}</strong><br>${esc(msg)}</div>
-  `;
-
-  container.appendChild(toast);
-
+export function toast(msg) {
+  if (!msg) return;
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.className = 'toast';
+  el.setAttribute('role', 'alert');
+  el.setAttribute('aria-live', 'polite');
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
   setTimeout(() => {
-    toast.classList.add('out');
-    setTimeout(() => toast.remove(), 280);
-  }, 3000);
+    el.classList.remove('show');
+    setTimeout(() => {
+      if (document.body.contains(el)) document.body.removeChild(el);
+    }, 300);
+  }, 2500);
+}
+
+export function showError(err) {
+  const message = err?.message || err || 'An error occurred';
+  toast(`Error: ${message}`);
+  console.error(err);
+}
+
+export function showNetworkError() {
+  toast('Network connection lost. Please check your internet connection.');
 }
 
 export function showModal(id) {

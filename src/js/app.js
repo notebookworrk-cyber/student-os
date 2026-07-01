@@ -46,8 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPWA();
   setupExitDF();
 
-  if (state.settings.notifs && 'Notification' in window && Notification.permission === 'granted') {
-    import('./settings.js').then(m => m.scheduleStudyReminders());
+  if (state.settings.notifs && 'Notification' in window) {
+    if (Notification.permission === 'granted') {
+      import('./settings.js').then(m => m.scheduleStudyReminders());
+      console.log('✅ Study reminders scheduled');
+    } else {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          import('./settings.js').then(m => m.scheduleStudyReminders());
+          console.log('✅ Study reminders scheduled (permission granted)');
+        }
+      });
+    }
   }
 
   const ring = document.getElementById('ring');
