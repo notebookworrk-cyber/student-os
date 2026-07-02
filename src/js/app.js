@@ -1,5 +1,5 @@
-import { load, getState, save, getToday, getLevelTitle, QUOTES, LVT, RING_C } from './state.js';
-import { initTasks, renderTasks, addTask, deleteTask, toggleTask, dailyReset } from './tasks.js';
+import { load, getState, save, getToday, getLevelTitle, QUOTES, LVT, RING_C, MISSIONS, COACH_M } from './state.js';
+import { initTasks, renderTasks, addTask, deleteTask, toggleTask, dailyReset, selectPriority, setFilter } from './tasks.js';
 import { initTimer, setMode, toggleTimer, resetTimer, skipMode, renderDots, renderSessionHistory } from './timer.js';
 import { initAI, sendAI, useChip, aiKey, autoR, clearChat } from './ai.js';
 import { initSettings, openSettings, saveApiKey, saveName, setDur, resetAll, exportData, importData, toggleNotifs, saveUname } from './settings.js';
@@ -8,27 +8,6 @@ import { toast, showModal, hideModal, onOverlayClick, makeConfetti, formatTime, 
 
 let curTab = 'home';
 let timerRunning = false;
-
-const MISSIONS = [
-  'Complete 2 focus sessions today',
-  'Finish 3 tasks before midnight',
-  'Study for 50+ minutes total',
-  'Complete a Physics or Math task',
-  'Maintain your streak — study now'
-];
-
-const COACH_M = [
-  'You haven\'t studied yet today. <b>One session sets the tone for everything.</b>',
-  'Top students study 3+ hours daily. <b>Where are you right now?</b>',
-  'Boards don\'t care about your mood. <b>Show up anyway.</b>',
-  'One 25-min session right now beats zero sessions all day. <b>Start.</b>',
-  '<b>Stop planning. Start doing.</b> Your future self will thank you.'
-];
-
-const SICO = {
-  math: '📐', physics: '⚛️', chemistry: '🧪',
-  english: '📖', history: '🏛️', biology: '🧬', other: '📦'
-};
 
 document.addEventListener('DOMContentLoaded', () => {
   load();
@@ -75,7 +54,7 @@ function createAppShell() {
   const app = document.getElementById('app');
   if (!app) return;
 
-  app.innerHTML = `﻿
+  app.innerHTML = `
 <div class="bg-grid"></div>
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
@@ -149,12 +128,19 @@ function createAppShell() {
       </div>
       <div id="ai-status" style="font-size:11px;margin-top:7px;color:var(--t3)"></div>
     </div>
+    <div class="set-sec"><h4>AI Provider</h4>
+      <div id="provider-select">
+        <button class="provider-btn active" data-provider="anthropic">Claude (Anthropic)</button>
+        <button class="provider-btn" data-provider="gemini">Gemini (Google)</button>
+      </div>
+      <p style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5">Switch between AI providers. API keys are provider-specific.</p>
+    </div>
     <div class="set-sec"><h4>Preferences</h4>
       <div class="set-row">
         <label>Study Reminders</label>
         <label class="tgl"><input type="checkbox" id="notif-toggle" onchange="toggleNotifs(this.checked)"><span class="tgl-track"></span></label>
       </div>
-      <p style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.5">Get nudged when you haven't studied. Only fires between 7amΓÇô10pm.</p>
+      <p style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.5">Get nudged when you haven't studied. Only fires between 7am&ndash;10pm.</p>
     </div>
     <div class="set-sec"><h4>About</h4>
       <div class="set-row"><label>Version</label><span style="color:var(--t3);font-family:var(--fm);font-size:11px">v4.0.0</span></div>
@@ -172,7 +158,8 @@ function createAppShell() {
   </div>
 </div>
 
-<nav id="nav-mobile">
+<div id="app-inner">
+  <nav id="nav-mobile">
     <button class="mn-item on" data-t="home" onclick="go('home',this)">
       <svg viewBox="0 0 576 512"><path d="M575.8 255.5c0 18-15 32.1-32 32.1l-32 0 .7 160.2c0 2.7-.2 5.4-.5 8.1l0 16.2c0 22.1-17.9 40-40 40l-16 0c-1.1 0-2.2 0-3.3-.1c-1.4.1-2.8.1-4.2.1L416 512l-24 0c-22.1 0-40-17.9-40-40l0-24 0-64c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32 14.3-32 32l0 64 0 24c0 22.1-17.9 40-40 40l-24 0-31.9 0c-1.5 0-3-.1-4.5-.2c-1.2.1-2.4.2-3.6.2l-16 0c-22.1 0-40-17.9-40-40l0-112c0-.9 0-1.9.1-2.8l0-69.7-32 0c-18 0-32-14-32-32.1c0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z"/></svg>Home
     </button>
@@ -208,7 +195,6 @@ function createAppShell() {
     <!-- HOME -->
     <section class="page on" id="pg-home">
       <div class="home-pg">
-        <!-- Greeting -->
         <div class="hm-top">
           <div>
             <div class="hm-greet-time" id="hm-greet-time">Good morning</div>
@@ -217,7 +203,6 @@ function createAppShell() {
           <button class="hm-set-btn" onclick="openSettings()">&#x2699;</button>
         </div>
 
-        <!-- Brutal stat -->
         <div class="hm-stat st-zero" id="hm-stat">
           <div class="hm-stat-num" id="hm-stat-num">0 min</div>
           <div class="hm-stat-sub" id="hm-stat-sub">studied today</div>
@@ -225,7 +210,6 @@ function createAppShell() {
           <div class="hm-urgency" id="hm-urgency">&#x23F3; Calculating...</div>
         </div>
 
-        <!-- Level + XP -->
         <div class="hm-level">
           <div class="hm-level-row">
             <div>
@@ -237,7 +221,6 @@ function createAppShell() {
           <div class="hm-xp-track"><div class="hm-xp-bar" id="hm-xp-bar" style="width:0%"></div></div>
         </div>
 
-        <!-- Daily mission -->
         <div class="hm-mission">
           <div>
             <div class="hm-mission-lbl">Daily Mission</div>
@@ -246,18 +229,15 @@ function createAppShell() {
           <div class="hm-mission-xp">+50 XP</div>
         </div>
 
-        <!-- PRIMARY CTA -->
         <button class="hm-cta" onclick="go('focus',null)">
           &#x1F525; Start Focus Session
         </button>
 
-        <!-- Quick actions -->
         <div class="hm-quick">
           <button class="hm-qbtn" onclick="showModal('task-modal')">&#x2795; Add Task</button>
           <button class="hm-qbtn" onclick="go('tasks',null)">&#x1F4CB; View Tasks</button>
         </div>
 
-        <!-- 3 stat chips -->
         <div class="hm-chips">
           <div class="hm-chip">
             <div class="hm-chip-val" id="hm-streak" style="color:var(--amber)">0</div>
@@ -273,7 +253,6 @@ function createAppShell() {
           </div>
         </div>
 
-        <!-- AI Coach -->
         <div class="hm-coach">
           <div class="hm-coach-av">&#x1F916;</div>
           <div class="hm-coach-txt" id="hm-coach">Analyzing your study patterns...</div>
@@ -320,7 +299,7 @@ function createAppShell() {
         <div class="ring-wrap rm-focus" id="ring-wrap">
           <svg class="ring-svg" viewBox="0 0 250 250">
             <circle class="ring-bg" cx="125" cy="125" r="108"/>
-            <circle class="ring-prog" id="ring" cx="125" cy="125" r="108" stroke-dasharray="678.6" stroke-dashoffset="0"/>
+            <circle class="ring-prog" id="ring" cx="125" cy="125" r="108" stroke-dasharray="${RING_C}" stroke-dashoffset="0"/>
           </svg>
           <div class="ring-inner">
             <div class="ring-time" id="ring-time">25:00</div>
@@ -428,28 +407,24 @@ function createAppShell() {
   </main>
 </div>
 
-
-
-<!-- PWA install button ΓÇö hidden until browser fires beforeinstallprompt -->
 <button id="pwa-install-btn" onclick="installPWA()" style="display:none;position:fixed;bottom:calc(var(--nh)+16px);left:50%;transform:translateX(-50%);z-index:300;align-items:center;gap:8px;padding:10px 20px;background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:50px;font-family:var(--fh);font-size:13px;font-weight:700;box-shadow:0 8px 28px rgba(139,92,246,.4);cursor:pointer;white-space:nowrap">
-  ≡ƒô▓ Install App
+  &#x1F4F2; Install App
 </button>
-
-
 `;
 
   document.body.prepend(app.querySelector('#exit-df-btn'));
   document.body.appendChild(app.querySelector('#lu-overlay'));
   document.body.appendChild(app.querySelector('#pwa-install-btn'));
-  document.body.appendChild(app.querySelector('#confetti'));
 }
 
 
 function setupNavigation() {
-  document.querySelectorAll('.nav-btn, .bn-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.t;
-      if (tab) go(tab);
+  document.querySelectorAll('.mn-item, .sd-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('.mn-item, .sd-item')) {
+        const tab = btn.dataset.t;
+        if (tab) go(tab, btn);
+      }
     });
   });
 }
@@ -460,8 +435,8 @@ export function go(tab, el) {
   if (!pg) return;
   pg.classList.add('on');
 
-  document.querySelectorAll('.nav-btn, .bn-item').forEach(n => n.classList.remove('on'));
-  document.querySelectorAll(`[data-t="${tab}"]`).forEach(n => n.classList.add('on'));
+  document.querySelectorAll('.mn-item, .sd-item').forEach(n => n.classList.remove('on'));
+  document.querySelectorAll('[data-t="' + tab + '"]').forEach(n => n.classList.add('on'));
 
   curTab = tab;
 

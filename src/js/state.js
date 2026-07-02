@@ -141,6 +141,8 @@ export function getToday() {
 }
 
 export function getLevelTitle(level) {
+  // Level should be 1-10, but handle edge cases gracefully
+  if (level < 1) return '';
   return LVT[Math.min(level, 10)] || 'Legend';
 }
 

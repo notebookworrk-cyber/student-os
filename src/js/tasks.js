@@ -1,5 +1,5 @@
-import { getState, save, getToday } from './state.js';
-import { toast, validateApiKey } from './utils.js';
+import { getState, save, getToday, SICO } from './state.js';
+import { toast, validateApiKey, esc, hideModal } from './utils.js';
 
 let curPri = 'high';
 let curFilter = 'all';
@@ -165,15 +165,9 @@ export function renderTasks() {
     : `<div class="empty"><div class="empty-icon">📭</div><p>No tasks. Add your first mission!</p></div>`;
 }
 
-function esc(s) {
-  return String(s)
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"');
-}
 
-import { SICO } from './state.js';
+
+
 
 window.toggleTask = toggleTask;
 window.delTask = deleteTask;

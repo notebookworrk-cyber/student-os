@@ -1,5 +1,5 @@
 import { getState, save, setState } from './state.js';
-import { toast, validateApiKey, getProviderName, hideModal, esc } from './utils.js';
+import { toast, validateApiKey, getProviderName, hideModal } from './utils.js';
 import { renderTasks } from './tasks.js';
 import { renderDots, renderSessionHistory, setMode, setTimerSec } from './timer.js';
 import { closeLevelUp } from './gamification.js';
@@ -245,7 +245,7 @@ export function importData() {
   inp.type = 'file';
   inp.accept = '.json';
 
-  inp.onchange = e => {
+inp.onchange = e => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -253,18 +253,103 @@ export function importData() {
     reader.onload = ev => {
       try {
         const d = JSON.parse(ev.target.result);
-        if (typeof d.xp !== 'number' || !Array.isArray(d.tasks)) throw new Error('Invalid');
-
+        
+        // Validate the imported data structure
+        if (typeof d !== 'object' || d === null) {
+          throw new Error('Invalid data format');
+        }
+        
+        // Validate required top-level fields
+        if (typeof d.name !== 'string') throw new Error('Invalid or missing name');
+        if (typeof d.level !== 'number' || d.level < 1 || d.level > 10) throw new Error('Invalid or missing level');
+        if (typeof d.xp !== 'number' || d.xp < 0) throw new Error('Invalid or missing xp');
+        if (typeof d.streak !== 'number' || d.streak < 0) throw new Error('Invalid or missing streak');
+        if (typeof d.bestStreak !== 'number' || d.bestStreak < 0) throw new Error('Invalid or missing bestStreak');
+        if (typeof d.totalTasksDone !== 'number' || d.totalTasksDone < 0) throw new Error('Invalid or missing totalTasksDone');
+        if (typeof d.todayFocusMins !== 'number' || d.todayFocusMins < 0) throw new Error('Invalid or missing todayFocusMins');
+        if (typeof d.sessCount !== 'number' || d.sessCount < 0) throw new Error('Invalid or missing sessCount');
+        if (typeof d.lastDate !== 'string') throw new Error('Invalid or missing lastDate');
+        if (!Array.isArray(d.tasks)) throw new Error('Invalid or missing tasks');
+        if (!Array.isArray(d.sessions)) throw new Error('Invalid or missing sessions');
+        if (typeof d.activity !== 'object' || d.activity === null) throw new Error('Invalid or missing activity');
+        if (!d.achievements || typeof d.achievements !== 'object') throw new Error('Invalid or missing achievements');
+        if (!d.settings || typeof d.settings !== 'object') throw new Error('Invalid or missing settings');
+        
+        // Validate nested objects
+        const requiredAchievements = ['firstFocus', 'streak7', 'xp100', 'tasks10', 'focus1hr', 'level5'];
+        for (const key of requiredAchievements) {
+          if (typeof d.achievements[key] !== 'boolean') {
+            throw new Error(`Invalid or missing achievement: ${key}`);
+          }
+        }
+        
+        const requiredSettings = ['dur', 'apiKey', 'notifs', 'provider'];
+        for (const key of requiredSettings) {
+          if (d.settings[key] === undefined) {
+            throw new Error(`Invalid or missing setting: ${key}`);
+          }
+        }
+        if (typeof d.settings.dur !== 'number' || d.settings.dur <= 0) {
+          throw new Error('Invalid duration setting');
+        }
+        if (typeof d.settings.apiKey !== 'string') {
+          throw new Error('Invalid API key setting');
+        }
+        if (typeof d.settings.notifs !== 'boolean') {
+          throw new Error('Invalid notifications setting');
+        }
+        if (d.settings.provider !== 'anthropic' && d.settings.provider !== 'gemini') {
+          throw new Error('Invalid provider setting');
+        }
+        
+        // Validate task objects
+        for (let i = 0; i < d.tasks.length; i++) {
+          const task = d.tasks[i];
+          if (typeof task !== 'object' || task === null) {
+            throw new Error(`Invalid task at index ${i}`);
+          }
+          if (typeof task.id !== 'number') throw new Error(`Invalid or missing id for task at index ${i}`);
+          if (typeof task.name !== 'string') throw new Error(`Invalid or missing name for task at index ${i}`);
+          if (typeof task.sub !== 'string') throw new Error(`Invalid or missing subject for task at index ${i}`);
+          if (typeof task.pri !== 'string') throw new Error(`Invalid or missing priority for task at index ${i}`);
+          if (typeof task.time !== 'string') throw new Error(`Invalid or missing time for task at index ${i}`);
+          if (typeof task.done !== 'boolean') throw new Error(`Invalid or missing done flag for task at index ${i}`);
+          if (task.doneDate !== null && typeof task.doneDate !== 'string') {
+            throw new Error(`Invalid doneDate for task at index ${i}`);
+          }
+          if (typeof task.pinned !== 'boolean') {
+            throw new Error(`Invalid or missing pinned flag for task at index ${i}`);
+          }
+        }
+        
+        // Validate session objects
+        for (let i = 0; i < d.sessions.length; i++) {
+          const session = d.sessions[i];
+          if (typeof session !== 'object' || session === null) {
+            throw new Error(`Invalid session at index ${i}`);
+          }
+          if (typeof session.dur !== 'number' || session.dur <= 0) {
+            throw new Error(`Invalid or missing duration for session at index ${i}`);
+          }
+          if (typeof session.time !== 'string') {
+            throw new Error(`Invalid or missing time for session at index ${i}`);
+          }
+          if (typeof session.ts !== 'number') {
+            throw new Error(`Invalid or missing timestamp for session at index ${i}`);
+          }
+        }
+        
+        // All validation passed, apply the data
         const state = getState();
         ['name', 'level', 'xp', 'streak', 'bestStreak', 'totalTasksDone',
          'todayFocusMins', 'sessCount', 'sessions', 'tasks', 'activity',
          'achievements', 'settings'].forEach(k => {
-          if (d[k] !== undefined) state[k] = d[k];
-        });
-
+           if (d[k] !== undefined) state[k] = d[k];
+         });
+        
         save();
         hideModal('set-modal');
-
+        
         import('./app.js').then(m => {
           m.renderHome();
           m.renderDash();
@@ -273,7 +358,7 @@ export function importData() {
         renderTasks();
         renderDots();
         renderSessionHistory();
-
+        
         toast('Imported!', 'Your backup has been restored.', 'green');
       } catch (err) {
         toast('Import failed', 'Not a valid Student OS backup.', 'red');
