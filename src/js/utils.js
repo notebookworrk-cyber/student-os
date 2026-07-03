@@ -59,19 +59,25 @@ export function createFragment(html) {
   return template.content;
 }
 
-export function toast(msg) {
-  if (!msg) return;
+export function toast(title, message, color) {
+  if (!title) return;
+  const container = document.getElementById('toasts') || document.body;
   const el = document.createElement('div');
-  el.textContent = msg;
   el.className = 'toast';
+  if (color) el.dataset.color = color;
+  if (message) {
+    el.innerHTML = `<div class="toast-title">${esc(title)}</div><div class="toast-msg">${esc(message)}</div>`;
+  } else {
+    el.textContent = title;
+  }
   el.setAttribute('role', 'alert');
   el.setAttribute('aria-live', 'polite');
-  document.body.appendChild(el);
+  container.appendChild(el);
   requestAnimationFrame(() => el.classList.add('show'));
   setTimeout(() => {
     el.classList.remove('show');
     setTimeout(() => {
-      if (document.body.contains(el)) document.body.removeChild(el);
+      if (container.contains(el)) container.removeChild(el);
     }, 300);
   }, 2500);
 }
